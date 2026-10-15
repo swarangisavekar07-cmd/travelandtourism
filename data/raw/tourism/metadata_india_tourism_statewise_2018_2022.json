@@ -1,0 +1,120 @@
+{
+  "dataset_name": "India Tourism State/UT-wise Domestic and Foreign Tourist Visits (2018-2022)",
+  "file_path": "data/raw/tourism/india_tourism_statewise_2018_2022.csv",
+  "backup_file_path": "data/raw/tourism/india_tourism_statewise_2018_2022.csv.bak",
+  "geographic_coverage": {
+    "total_administrative_entities": 36,
+    "states_count": 28,
+    "union_territories_count": 8,
+    "aggregate_rows": 1,
+    "total_entities_in_dataset": 37
+  },
+  "temporal_coverage": {
+    "start_year": 2018,
+    "end_year": 2022,
+    "granularity": "Annual"
+  },
+  "dimensions": [
+    "State/UT (Name of State or Union Territory, or Total India)",
+    "Category (Domestic or Foreign Tourist Visits)",
+    "2018 (Annual visit count)",
+    "2019 (Annual visit count)",
+    "2020 (Annual visit count)",
+    "2021 (Annual visit count)",
+    "2022 (Annual visit count)"
+  ],
+  "primary_official_sources": [
+    {
+      "source_portal": "Ministry of Tourism Research & Analytics Portal",
+      "portal_url": "https://data.tourism.gov.in/rawdata",
+      "document_title": "Tourism Statistics for year 2019",
+      "local_archive": "data/raw/tourism/Tourism_Statistics_2019_0.doc",
+      "table_number": "Table 5.1.2",
+      "table_title": "State/UTs wise Domestic and Foreign Tourist Visits, 2018-19",
+      "reported_years": [
+        2018,
+        2019
+      ],
+      "reported_units": "Actual integer count of visits"
+    },
+    {
+      "source_portal": "Ministry of Tourism Research & Analytics Portal",
+      "portal_url": "https://data.tourism.gov.in/rawdata",
+      "document_title": "Tourism Statistics for year 2020",
+      "local_archive": "data/raw/tourism/Tourism_Statistics_2020.doc",
+      "table_number": "Table 5.1.2",
+      "table_title": "State/UTs wise Domestic and Foreign Tourist Visits, 2019-20",
+      "reported_years": [
+        2019,
+        2020
+      ],
+      "reported_units": "Actual integer count of visits"
+    },
+    {
+      "source_portal": "Ministry of Tourism Research & Analytics Portal",
+      "portal_url": "https://data.tourism.gov.in/rawdata",
+      "document_title": "Tourism Statistics for year 2021",
+      "local_archive": "data/raw/tourism/Tourism_Statistics_2021.doc",
+      "table_number": "Table 5.1.2",
+      "table_title": "State/UTs wise Domestic and Foreign Tourist Visits, 2020 & 2021",
+      "reported_years": [
+        2020,
+        2021
+      ],
+      "reported_units": "Actual integer count of visits"
+    },
+    {
+      "source_portal": "Ministry of Tourism Official Publications",
+      "portal_url": "https://data.tourism.gov.in/tourismdata",
+      "document_title": "India Tourism Statistics 2023",
+      "download_url": "https://data.tourism.gov.in/mrd/Uploads/tourism_data/India%20Tourism%20Statistics%202023-English%20(1).pdf",
+      "local_archive": "data/raw/tourism/India_Tourism_Statistics_2023.pdf",
+      "table_number": "Table 5.1.2",
+      "table_title": "State/UT-wise Domestic and Foreign Tourist Visits, 2021 & 2022",
+      "reported_years": [
+        2021,
+        2022
+      ],
+      "reported_units": "Lakhs (1 Lakh = 100,000 visits)"
+    },
+    {
+      "source_portal": "Ministry of Tourism Official Publications",
+      "portal_url": "https://data.tourism.gov.in/mrd/Uploads/tourism_data/India%20Tourism%20Data%20Compendium%202024.pdf",
+      "document_title": "India Tourism Data Compendium 2024",
+      "local_archive": "data/raw/tourism/India_Tourism_Data_Compendium_2024.pdf",
+      "table_number": "Table 4.1.2",
+      "table_title": "State/UT-wise Domestic and Foreign Tourist Visits, 2022 & 2023",
+      "reported_years": [
+        2022,
+        2023
+      ],
+      "reported_units": "Millions (1 Million = 1,000,000 visits)"
+    }
+  ],
+  "historical_boundary_and_administrative_notes": {
+    "Ladakh": "Formed as a separate Union Territory on 31 October 2019 following the Jammu and Kashmir Reorganisation Act, 2019. In 2018, Ladakh was not a separate reporting entity and was included in Jammu and Kashmir. 2018 is recorded as null/NA (not zero).",
+    "Dadra_and_Nagar_Haveli_and_Daman_and_Diu": "The two Union Territories of Dadra & Nagar Haveli and Daman & Diu were merged into a single Union Territory effective 26 January 2020. For consistency with the unified administrative boundary, figures for 2018-2021 are reported as the unified sum of both constituent territories.",
+    "Estimations_by_Ministry": "In the 2022 official reporting (Table 5.1.2 and Table 4.1.2), figures for Maharashtra and Delhi are officially estimated by the Ministry of Tourism by applying the All-India 2022/2019 growth rate to their 2019 base data, as footnoted in the publication."
+  },
+  "data_quality_metrics": {
+    "total_rows": 74,
+    "total_columns": 7,
+    "records_per_year": {
+      "2018": 72,
+      "2019": 74,
+      "2020": 74,
+      "2021": 74,
+      "2022": 74
+    },
+    "missing_values_by_column": {
+      "State/UT": 0,
+      "Category": 0,
+      "2018": 2,
+      "2019": 0,
+      "2020": 0,
+      "2021": 0,
+      "2022": 0
+    },
+    "duplicate_rows": 0
+  }
+}

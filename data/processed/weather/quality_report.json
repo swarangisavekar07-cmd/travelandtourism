@@ -1,0 +1,15 @@
+{
+  "raw_json_files_found": 5,
+  "hourly_records_parsed": 504,
+  "total_daily_forecast_records": 21,
+  "destinations_covered": [
+    "Lonavala",
+    "Matheran",
+    "Mahabaleshwar"
+  ],
+  "null_temperature_records": 0,
+  "null_precipitation_records": 0,
+  "is_forecast_metric": true,
+  "climatology_claimed": false,
+  "output_dir": "D:\\Travel and tourism\\data\\processed\\weather"
+}

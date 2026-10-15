@@ -1,0 +1,18 @@
+{
+  "total_records": 370,
+  "distinct_states": 37,
+  "categories": [
+    "Domestic",
+    "Foreign"
+  ],
+  "null_visit_counts": 2,
+  "null_yoy_growth_records": 76,
+  "aggregate_records": 10,
+  "estimated_records": 4,
+  "duplicate_records": 0,
+  "negative_records": 0,
+  "input_csv": "D:\\Travel and tourism\\data\\raw\\tourism\\india_tourism_statewise_2018_2022.csv",
+  "input_rows": 74,
+  "output_rows": 370,
+  "output_dir": "D:\\Travel and tourism\\data\\processed\\tourism"
+}
