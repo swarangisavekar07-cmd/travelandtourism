@@ -1,7 +1,7 @@
 """
 Unit tests for TravelWise Phase 5: Dashboard Data Loading and Analytics Logic.
-Validates Parquet dataset loading, pure transformation functions, KPI calculations,
-and filter isolation without requiring a running Streamlit server.
+Validates Parquet and SQL dataset loading, pure transformation functions, KPI calculations,
+State Explorer analytics, and filter isolation without requiring a running Streamlit server.
 """
 
 import pytest
@@ -10,6 +10,7 @@ from pathlib import Path
 
 from app.data_loader import (
     load_tourism_data,
+    load_tourism_from_sql,
     load_weather_data,
     load_tourism_quality_report,
     load_weather_quality_report,
@@ -18,6 +19,8 @@ from app.data_loader import (
     get_tourism_timeline_trends,
     get_top_states_by_visits,
     get_destination_weather,
+    get_all_distinct_states,
+    compute_state_analytics,
 )
 
 
@@ -45,6 +48,14 @@ class TestDashboardDataLoading:
             "prev_year_visit_count", "yoy_growth_pct",
         }
         assert expected_cols.issubset(set(tourism_df.columns))
+
+    def test_load_tourism_from_sql(self):
+        df, source = load_tourism_from_sql()
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 370
+        assert source in ("PostgreSQL", "SQLite", "Curated Parquet")
+        assert "state" in df.columns
+        assert "visit_count" in df.columns
 
     def test_load_weather_dataset(self, weather_df):
         assert isinstance(weather_df, pd.DataFrame)
@@ -144,3 +155,53 @@ class TestAnalyticsAndKPITransformations:
         # Case-insensitive destination match
         lower_match = get_destination_weather(weather_df, "lonavala")
         assert len(lower_match) == 7
+
+
+class TestStateExplorerAnalytics:
+    """Tests dedicated analytical helpers for State Explorer (Feature Two)."""
+
+    def test_get_all_distinct_states(self, tourism_df):
+        states = get_all_distinct_states(tourism_df)
+        assert len(states) == 36
+        assert "Total India" not in states
+        assert "Goa" in states
+        assert "Kerala" in states
+        assert "Ladakh" in states
+        assert "Maharashtra" in states
+
+    def test_compute_state_analytics_general(self, tourism_df):
+        analytics = compute_state_analytics(tourism_df, "Goa")
+        assert analytics["state_name"] == "Goa"
+        assert analytics["domestic_visits"] > 0
+        assert analytics["foreign_visits"] > 0
+        assert analytics["total_visits"] == analytics["domestic_visits"] + analytics["foreign_visits"]
+        assert analytics["domestic_share"] is not None
+        assert analytics["foreign_share"] is not None
+        assert analytics["domestic_share"] + analytics["foreign_share"] == pytest.approx(100.0, abs=0.2)
+        assert analytics["total_rank"] >= 1
+        assert len(analytics["analytical_summary"]) > 20
+        assert not analytics["has_null_history"]
+
+    def test_compute_state_analytics_ladakh_nulls(self, tourism_df):
+        # 2018 for Ladakh should be preserved as null
+        analytics_2018 = compute_state_analytics(tourism_df, "Ladakh", year=2018)
+        assert analytics_2018["domestic_visits"] is None
+        assert analytics_2018["foreign_visits"] is None
+        assert analytics_2018["total_visits"] is None
+        assert not analytics_2018["is_complete"]
+        assert analytics_2018["has_null_history"] is True
+
+        # 2019 for Ladakh should have real recorded visits
+        analytics_2019 = compute_state_analytics(tourism_df, "Ladakh", year=2019)
+        assert analytics_2019["domestic_visits"] == 241285
+        assert analytics_2019["foreign_visits"] == 38652
+        assert analytics_2019["is_complete"] is True
+
+    def test_compute_state_analytics_single_year(self, tourism_df):
+        analytics_2022 = compute_state_analytics(tourism_df, "Kerala", year=2022)
+        assert analytics_2022["selected_year"] == 2022
+        assert analytics_2022["domestic_visits"] == 18867400
+        assert analytics_2022["foreign_visits"] == 345500
+        assert analytics_2022["total_visits"] == 18867400 + 345500
+        assert analytics_2022["domestic_yoy"] is not None
+        assert analytics_2022["foreign_yoy"] is not None
