@@ -1,0 +1,32 @@
+{
+  "total_records": 290,
+  "distinct_monuments": 145,
+  "distinct_circles": 33,
+  "distinct_states": 21,
+  "financial_years": [
+    "2022-23",
+    "2023-24"
+  ],
+  "null_domestic_records": 2,
+  "null_foreign_records": 2,
+  "null_total_records": 2,
+  "null_yoy_growth_records": 148,
+  "duplicate_records": 0,
+  "negative_records": 0,
+  "reconciliation": {
+    "2022-23": {
+      "domestic_visitors": 47901021,
+      "foreign_visitors": 1445363,
+      "total_visitors": 49346384
+    },
+    "2023-24": {
+      "domestic_visitors": 53090007,
+      "foreign_visitors": 2314641,
+      "total_visitors": 55404648
+    }
+  },
+  "input_json": "D:\\Travel and tourism\\data\\raw\\monuments\\asi_monument_visitors.json",
+  "input_rows": 290,
+  "output_rows": 290,
+  "output_dir": "D:\\Travel and tourism\\data\\processed\\monuments"
+}

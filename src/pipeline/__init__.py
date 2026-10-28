@@ -16,6 +16,13 @@ from src.pipeline.weather_pipeline import (
     parse_weather_json_record,
     aggregate_daily_weather,
 )
+from src.pipeline.monument_pipeline import (
+    run_monument_pipeline,
+    process_monument_data,
+    compute_monument_metrics,
+    validate_monument_curated,
+    MonumentPipelineError,
+)
 
 __all__ = [
     "get_spark_session",
@@ -27,4 +34,9 @@ __all__ = [
     "run_weather_pipeline",
     "parse_weather_json_record",
     "aggregate_daily_weather",
+    "run_monument_pipeline",
+    "process_monument_data",
+    "compute_monument_metrics",
+    "validate_monument_curated",
+    "MonumentPipelineError",
 ]

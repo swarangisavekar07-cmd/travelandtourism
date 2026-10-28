@@ -15,13 +15,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.data_loader import load_tourism_from_sql
+from app.data_loader import load_tourism_from_sql, load_monuments_from_sql
 from app.components import (
     render_overview,
     render_state_explorer,
     render_tourism_analytics,
     render_architecture,
     render_data_quality,
+    render_monument_analysis,
 )
 
 
@@ -213,6 +214,13 @@ def main():
         tourism_df = None
         db_source = "None"
 
+    # Load Curated Monument Data directly from SQL Database (with Parquet fallback)
+    try:
+        monument_df, monument_db_source = load_monuments_from_sql()
+    except Exception as e:
+        monument_df = None
+        monument_db_source = "Unavailable"
+
     # Sidebar Navigation & Branding
     with st.sidebar:
         st.markdown(
@@ -239,6 +247,7 @@ def main():
                 "India Tourism Overview",
                 "State Explorer",
                 "Detailed State Analytics",
+                "Monument Visitor Analysis",
                 "Architecture",
                 "Data Quality & Governance",
             ],
@@ -306,6 +315,8 @@ def main():
         render_state_explorer(tourism_df=tourism_df, db_source=db_source)
     elif nav_choice == "Detailed State Analytics":
         render_tourism_analytics(df=tourism_df)
+    elif nav_choice == "Monument Visitor Analysis":
+        render_monument_analysis(monument_df=monument_df, db_source=monument_db_source)
     elif nav_choice == "Architecture":
         render_architecture(tourism_df=tourism_df, db_source=db_source)
     elif nav_choice == "Data Quality & Governance":

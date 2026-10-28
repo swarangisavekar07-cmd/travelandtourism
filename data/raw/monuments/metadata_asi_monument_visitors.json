@@ -1,0 +1,40 @@
+{
+  "dataset_name": "Centrally Protected Ticketed ASI Monuments Visitor Statistics",
+  "source_entity": "Ministry of Tourism, Government of India & Archaeological Survey of India (ASI)",
+  "source_publication": "India Tourism Data Compendium 2024",
+  "chapter": "Chapter 4: Domestic Tourism",
+  "table_number": "Table 4.2.3: Number of Visitors to Centrally Protected Ticketed Monuments, 2022-23 & 2023-24",
+  "reporting_period": "Financial Years 2022-23 (1 April 2022 - 31 March 2023) and 2023-24 (1 April 2023 - 31 March 2024)",
+  "retrieval_date": "2026-10-28",
+  "provenance_notes": "Extracted from official Ministry of Tourism publications archived in data/raw/tourism/India_Tourism_Data_Compendium_2024.pdf. Sourced from ticketing records maintained by the Archaeological Survey of India (ASI) across 33 circles.",
+  "total_monuments": 145,
+  "total_records": 290,
+  "schema_fields": {
+    "serial_number": "Original official serial number (1-145)",
+    "monument_name": "Official monument name per Archaeological Survey of India",
+    "circle": "ASI administrative circle jurisdiction (33 circles)",
+    "state_or_region": "Standardized Indian State / Union Territory name",
+    "financial_year": "Financial year identifier ('2022-23', '2023-24')",
+    "domestic_visitors": "Annual domestic visitor count (ticketed footfall)",
+    "foreign_visitors": "Annual foreign visitor count (ticketed footfall)",
+    "total_visitors": "Total annual visitor footfall (domestic + foreign)",
+    "source": "Full publication citation"
+  },
+  "reconciliation_totals": {
+    "fy_2022_23": {
+      "domestic_visitors": 47901021,
+      "foreign_visitors": 1445363,
+      "total_visitors": 49346384
+    },
+    "fy_2023_24": {
+      "domestic_visitors": 53090007,
+      "foreign_visitors": 2314641,
+      "total_visitors": 55404648
+    }
+  },
+  "data_limitations": [
+    "Covers centrally protected ticketed monuments under ASI jurisdiction only; does not include non-ticketed national monuments or state-protected monuments.",
+    "Reported on a financial year basis (April to March) rather than calendar years.",
+    "Monuments with temporary closures or transition to ticketless status contain legitimate null values (e.g., Mattancherry Palace Museum in 2023-24, Fort St. George in 2022-23)."
+  ]
+}

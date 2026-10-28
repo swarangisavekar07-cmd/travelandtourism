@@ -106,3 +106,58 @@ class WeatherDailyForecast(Base):
 
     def __repr__(self) -> str:
         return f"<WeatherDailyForecast(destination='{self.destination}', date='{self.forecast_date}', temp_avg={self.temp_avg_c}C, precip={self.total_precipitation_mm}mm)>"
+
+
+class ASIMonumentVisitor(Base):
+    """
+    Curated monument visitor statistics for centrally protected ticketed monuments in India.
+    Includes domestic, foreign, and total visitor footfall for financial years 2022-23 and 2023-24,
+    along with administrative circle, state/region mapping, YoY growth, and foreign footfall share.
+    """
+    __tablename__ = "asi_monument_visitors"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    serial_number = Column(Integer, nullable=True)
+    monument_name = Column(String(150), nullable=False, index=True)
+    circle = Column(String(100), nullable=False, index=True)
+    state_or_region = Column(String(100), nullable=False, index=True)
+    financial_year = Column(String(20), nullable=False, index=True)  # '2022-23', '2023-24'
+    domestic_visitors = Column(BigInteger, nullable=True)  # Preserves legitimate nulls
+    foreign_visitors = Column(BigInteger, nullable=True)
+    total_visitors = Column(BigInteger, nullable=True)
+    prev_year_domestic_visitors = Column(BigInteger, nullable=True)
+    prev_year_foreign_visitors = Column(BigInteger, nullable=True)
+    prev_year_total_visitors = Column(BigInteger, nullable=True)
+    yoy_growth_pct = Column(Float, nullable=True)
+    foreign_visitor_share_pct = Column(Float, nullable=True)
+    source = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("monument_name", "financial_year", name="uq_monument_name_financial_year"),
+        Index("idx_monument_circle_year", "circle", "financial_year"),
+        Index("idx_monument_state_year", "state_or_region", "financial_year"),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "serial_number": self.serial_number,
+            "monument_name": self.monument_name,
+            "circle": self.circle,
+            "state_or_region": self.state_or_region,
+            "financial_year": self.financial_year,
+            "domestic_visitors": self.domestic_visitors,
+            "foreign_visitors": self.foreign_visitors,
+            "total_visitors": self.total_visitors,
+            "prev_year_domestic_visitors": self.prev_year_domestic_visitors,
+            "prev_year_foreign_visitors": self.prev_year_foreign_visitors,
+            "prev_year_total_visitors": self.prev_year_total_visitors,
+            "yoy_growth_pct": self.yoy_growth_pct,
+            "foreign_visitor_share_pct": self.foreign_visitor_share_pct,
+            "source": self.source,
+        }
+
+    def __repr__(self) -> str:
+        return f"<ASIMonumentVisitor(monument='{self.monument_name}', fy='{self.financial_year}', total={self.total_visitors})>"

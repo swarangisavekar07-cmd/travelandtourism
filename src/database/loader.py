@@ -14,7 +14,7 @@ from sqlalchemy import select, func, distinct
 from sqlalchemy.engine import Engine
 
 from src.database.connection import get_engine, get_db_session
-from src.database.models import Base, TourismStatewiseAnnual, WeatherDailyForecast
+from src.database.models import Base, TourismStatewiseAnnual, WeatherDailyForecast, ASIMonumentVisitor
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_TOURIISM_PARQUET = PROJECT_ROOT / "data" / "processed" / "tourism" / "india_tourism_statewise_normalized.parquet"
 DEFAULT_WEATHER_PARQUET = PROJECT_ROOT / "data" / "processed" / "weather" / "daily_weather_forecast_curated.parquet"
+DEFAULT_MONUMENT_PARQUET = PROJECT_ROOT / "data" / "processed" / "monuments" / "asi_monument_visitors_normalized.parquet"
 
 
 def create_all_tables(engine: Optional[Engine] = None) -> None:
@@ -198,6 +199,48 @@ def load_curated_weather_to_db(
     return processed
 
 
+def load_curated_monuments_to_db(
+    parquet_path: Optional[str] = None,
+    engine: Optional[Engine] = None,
+) -> int:
+    """
+    Loads curated ASI monument visitor statistics from Parquet into PostgreSQL/SQLite.
+    Uses ON CONFLICT (monument_name, financial_year) DO UPDATE to prevent duplicate rows.
+    Preserves legitimate null footfalls and longitudinal growth metrics.
+    """
+    path = Path(parquet_path) if parquet_path else DEFAULT_MONUMENT_PARQUET
+    if not path.exists():
+        raise FileNotFoundError(f"Curated monument Parquet file not found at: {path}")
+
+    logger.info(f"Reading curated monument dataset from: {path}")
+    df = pd.read_parquet(path)
+    logger.info(f"Loaded {len(df)} monument records from Parquet.")
+
+    # Clean records, casting integer columns where not null
+    int_cols = [
+        "serial_number",
+        "domestic_visitors",
+        "foreign_visitors",
+        "total_visitors",
+        "prev_year_domestic_visitors",
+        "prev_year_foreign_visitors",
+        "prev_year_total_visitors",
+    ]
+    records = _clean_dataframe_for_sql(df, int_cols)
+
+    eng = engine or get_engine()
+    conflict_cols = ["monument_name", "financial_year"]
+
+    processed = _execute_upsert(
+        engine=eng,
+        model=ASIMonumentVisitor,
+        records=records,
+        conflict_columns=conflict_cols,
+    )
+    logger.info(f"Successfully upserted {processed} monument records into database.")
+    return processed
+
+
 def verify_database_counts(engine: Optional[Engine] = None) -> Dict[str, Any]:
     """
     Queries the database and computes validation metrics for tourism and weather tables.
@@ -260,6 +303,38 @@ def verify_database_counts(engine: Optional[Engine] = None) -> Dict[str, Any]:
             )
         ).scalar() or 0
 
+        # Monument Metrics
+        total_monuments = conn.execute(
+            select(func.count(ASIMonumentVisitor.id))
+        ).scalar() or 0
+
+        distinct_monuments = conn.execute(
+            select(func.count(distinct(ASIMonumentVisitor.monument_name)))
+        ).scalar() or 0
+
+        distinct_circles = conn.execute(
+            select(func.count(distinct(ASIMonumentVisitor.circle)))
+        ).scalar() or 0
+
+        distinct_monument_states = conn.execute(
+            select(func.count(distinct(ASIMonumentVisitor.state_or_region)))
+        ).scalar() or 0
+
+        monument_years_raw = conn.execute(
+            select(distinct(ASIMonumentVisitor.financial_year)).order_by(ASIMonumentVisitor.financial_year)
+        ).fetchall()
+        monument_years = [r[0] for r in monument_years_raw]
+
+        null_monument_visits = conn.execute(
+            select(func.count(ASIMonumentVisitor.id)).where(
+                ASIMonumentVisitor.total_visitors.is_(None)
+            )
+        ).scalar() or 0
+
+        total_monument_footfall = conn.execute(
+            select(func.coalesce(func.sum(ASIMonumentVisitor.total_visitors), 0))
+        ).scalar() or 0
+
     return {
         "tourism_total_count": total_tourism,
         "tourism_state_count": state_level_tourism,
@@ -272,4 +347,11 @@ def verify_database_counts(engine: Optional[Engine] = None) -> Dict[str, Any]:
         "weather_destinations": destinations,
         "weather_distinct_dates": distinct_dates_count,
         "weather_all_forecast": (non_forecast_count == 0 and total_weather > 0),
+        "monument_total_count": total_monuments,
+        "monument_distinct_count": distinct_monuments,
+        "monument_distinct_circles": distinct_circles,
+        "monument_distinct_states": distinct_monument_states,
+        "monument_financial_years": monument_years,
+        "monument_null_footfall_count": null_monument_visits,
+        "monument_total_footfall": total_monument_footfall,
     }

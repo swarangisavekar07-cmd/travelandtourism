@@ -20,8 +20,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 DEFAULT_TOURIISM_PARQUET = PROJECT_ROOT / "data" / "processed" / "tourism" / "india_tourism_statewise_normalized.parquet"
 DEFAULT_WEATHER_PARQUET = PROJECT_ROOT / "data" / "processed" / "weather" / "daily_weather_forecast_curated.parquet"
+DEFAULT_MONUMENT_PARQUET = PROJECT_ROOT / "data" / "processed" / "monuments" / "asi_monument_visitors_normalized.parquet"
 DEFAULT_TOURIISM_QUALITY = PROJECT_ROOT / "data" / "processed" / "tourism" / "quality_report.json"
 DEFAULT_WEATHER_QUALITY = PROJECT_ROOT / "data" / "processed" / "weather" / "quality_report.json"
+DEFAULT_MONUMENT_QUALITY = PROJECT_ROOT / "data" / "processed" / "monuments" / "quality_report.json"
 DEFAULT_SQLITE_DB = PROJECT_ROOT / "data" / "travelwise.db"
 
 
@@ -69,13 +71,20 @@ def get_database_engine():
 
     # Ensure tables exist and data is populated
     try:
-        from src.database.loader import create_all_tables, load_curated_tourism_to_db
+        from src.database.loader import (
+            create_all_tables,
+            load_curated_tourism_to_db,
+            load_curated_monuments_to_db,
+        )
         create_all_tables(engine)
         with engine.connect() as conn:
             from sqlalchemy import text
             count = conn.execute(text("SELECT COUNT(1) FROM tourism_statewise_annual")).scalar()
             if not count or count == 0:
                 load_curated_tourism_to_db(engine=engine)
+            m_count = conn.execute(text("SELECT COUNT(1) FROM asi_monument_visitors")).scalar()
+            if not m_count or m_count == 0:
+                load_curated_monuments_to_db(engine=engine)
     except Exception as e:
         logger.warning(f"Error ensuring SQLite database state: {e}")
 
@@ -109,6 +118,37 @@ def load_tourism_from_sql() -> Tuple[pd.DataFrame, str]:
     return df, "Curated Parquet"
 
 
+@st.cache_data(show_spinner=False)
+def load_monuments_from_sql() -> Tuple[pd.DataFrame, str]:
+    """
+    Loads normalized monument visitor statistics directly from the SQL database via SQLAlchemy.
+    Preserves exact types, legitimate nulls, and schema constraints.
+    Returns (DataFrame, engine_name).
+    """
+    try:
+        engine, engine_name = get_database_engine()
+        query = (
+            "SELECT serial_number, monument_name, circle, state_or_region, "
+            "financial_year, domestic_visitors, foreign_visitors, total_visitors, "
+            "prev_year_domestic_visitors, prev_year_foreign_visitors, prev_year_total_visitors, "
+            "yoy_growth_pct, foreign_visitor_share_pct, source "
+            "FROM asi_monument_visitors ORDER BY circle, monument_name, financial_year"
+        )
+        df = pd.read_sql(query, engine)
+        if not df.empty:
+            return df, engine_name
+    except Exception as e:
+        logger.warning(f"Failed to load monuments from SQL database ({e}), falling back to Parquet.")
+
+    # Resilient fallback to curated Parquet
+    try:
+        df = load_monuments_data()
+        return df, "Curated Parquet"
+    except Exception as e:
+        logger.warning(f"Parquet fallback also unavailable ({e})")
+        return pd.DataFrame(), "None"
+
+
 # -----------------------------------------------------------------------------
 # Parquet File Loaders
 # -----------------------------------------------------------------------------
@@ -122,6 +162,19 @@ def load_tourism_data(path: Optional[str] = None) -> pd.DataFrame:
     target = Path(path) if path else DEFAULT_TOURIISM_PARQUET
     if not target.exists():
         raise FileNotFoundError(f"Tourism dataset not found at {target}")
+    df = pd.read_parquet(target)
+    return df
+
+
+@st.cache_data(show_spinner=False)
+def load_monuments_data(path: Optional[str] = None) -> pd.DataFrame:
+    """
+    Loads curated ASI monument visitor dataset from Parquet.
+    Returns a pandas DataFrame.
+    """
+    target = Path(path) if path else DEFAULT_MONUMENT_PARQUET
+    if not target.exists():
+        raise FileNotFoundError(f"Monument dataset not found at {target}")
     df = pd.read_parquet(target)
     return df
 
@@ -150,6 +203,20 @@ def load_tourism_quality_report(path: Optional[str] = None) -> Optional[Dict[str
             return json.load(f)
     except Exception as e:
         logger.warning(f"Failed to read tourism quality report: {e}")
+        return None
+
+
+@st.cache_data(show_spinner=False)
+def load_monument_quality_report(path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Loads monument quality report JSON if available."""
+    target = Path(path) if path else DEFAULT_MONUMENT_QUALITY
+    if not target.exists():
+        return None
+    try:
+        with open(target, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to read monument quality report: {e}")
         return None
 
 
@@ -519,4 +586,144 @@ def compute_state_analytics(
         "analytical_summary": analytical_summary,
         "is_estimated_state": state_name in ("Maharashtra", "Delhi"),
         "has_null_history": state_name == "Ladakh",
+    }
+
+
+# -----------------------------------------------------------------------------
+# Monument Analytical Helpers
+# -----------------------------------------------------------------------------
+
+def get_monument_kpis(df: pd.DataFrame, financial_year: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Calculates executive KPIs for ASI Centrally Protected Ticketed Monuments.
+    """
+    if df is None or df.empty:
+        return {
+            "total_visitors": 0,
+            "domestic_visitors": 0,
+            "foreign_visitors": 0,
+            "foreign_share_pct": 0.0,
+            "monuments_count": 0,
+            "circles_count": 0,
+            "states_count": 0,
+            "top_monument_name": "N/A",
+            "top_monument_footfall": 0,
+        }
+
+    filtered = df.copy()
+    if financial_year and financial_year != "All Years":
+        filtered = filtered[filtered["financial_year"] == financial_year]
+
+    tot_vis = float(filtered["total_visitors"].fillna(0).sum())
+    dom_vis = float(filtered["domestic_visitors"].fillna(0).sum())
+    for_vis = float(filtered["foreign_visitors"].fillna(0).sum())
+    for_share = round((for_vis / tot_vis * 100.0), 2) if tot_vis > 0 else 0.0
+
+    monuments_count = int(filtered["monument_name"].nunique())
+    circles_count = int(filtered["circle"].nunique())
+    states_count = int(filtered["state_or_region"].nunique())
+
+    # Find highest footfall monument
+    top_monument_name = "N/A"
+    top_monument_footfall = 0
+    if not filtered.empty:
+        agg = filtered.groupby("monument_name")["total_visitors"].sum().reset_index()
+        top_row = agg.sort_values(by="total_visitors", ascending=False).iloc[0]
+        top_monument_name = top_row["monument_name"]
+        top_monument_footfall = int(top_row["total_visitors"])
+
+    return {
+        "total_visitors": tot_vis,
+        "domestic_visitors": dom_vis,
+        "foreign_visitors": for_vis,
+        "foreign_share_pct": for_share,
+        "monuments_count": monuments_count,
+        "circles_count": circles_count,
+        "states_count": states_count,
+        "top_monument_name": top_monument_name,
+        "top_monument_footfall": top_monument_footfall,
+    }
+
+
+def get_top_monuments(
+    df: pd.DataFrame,
+    financial_year: str = "2023-24",
+    top_n: int = 10,
+    category: str = "total_visitors",
+    circle: Optional[str] = None,
+    state: Optional[str] = None,
+) -> pd.DataFrame:
+    """
+    Returns ranked monuments filtered by financial year, circle, state, and category.
+    """
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    filtered = df.copy()
+    if financial_year and financial_year != "All Years":
+        filtered = filtered[filtered["financial_year"] == financial_year]
+
+    if circle and circle != "All Circles":
+        filtered = filtered[filtered["circle"] == circle]
+
+    if state and state != "All States/UTs":
+        filtered = filtered[filtered["state_or_region"] == state]
+
+    if category not in filtered.columns:
+        category = "total_visitors"
+
+    ranked = filtered.sort_values(by=category, ascending=False).head(top_n).copy()
+    ranked["rank"] = range(1, len(ranked) + 1)
+    return ranked
+
+
+def get_circle_footfall_summary(
+    df: pd.DataFrame,
+    financial_year: str = "2023-24",
+) -> pd.DataFrame:
+    """
+    Aggregates monument visitor footfalls across ASI circles.
+    """
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    filtered = df.copy()
+    if financial_year and financial_year != "All Years":
+        filtered = filtered[filtered["financial_year"] == financial_year]
+
+    summary = (
+        filtered.groupby(["circle", "state_or_region"])
+        .agg(
+            monument_count=("monument_name", "nunique"),
+            domestic_visitors=("domestic_visitors", "sum"),
+            foreign_visitors=("foreign_visitors", "sum"),
+            total_visitors=("total_visitors", "sum"),
+        )
+        .reset_index()
+        .sort_values(by="total_visitors", ascending=False)
+    )
+    summary["foreign_share_pct"] = np.where(
+        summary["total_visitors"] > 0,
+        np.round((summary["foreign_visitors"] / summary["total_visitors"]) * 100.0, 2),
+        0.0,
+    )
+    return summary
+
+
+def get_monument_comparison(df: pd.DataFrame, monument_name: str) -> Dict[str, Any]:
+    """
+    Returns deep-dive multi-year footfall trajectory for a specific monument.
+    """
+    if df is None or df.empty:
+        return {}
+
+    sub = df[df["monument_name"] == monument_name].sort_values(by="financial_year")
+    if sub.empty:
+        return {}
+
+    return {
+        "monument_name": monument_name,
+        "circle": sub["circle"].iloc[0],
+        "state_or_region": sub["state_or_region"].iloc[0],
+        "records": sub.to_dict(orient="records"),
     }

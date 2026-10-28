@@ -14,6 +14,7 @@ import sys
 import argparse
 import logging
 from typing import Optional
+from sqlalchemy.engine import Engine
 
 from src.database.config import get_db_settings
 from src.database.connection import get_engine, check_database_connection
@@ -21,6 +22,7 @@ from src.database.loader import (
     create_all_tables,
     load_curated_tourism_to_db,
     load_curated_weather_to_db,
+    load_curated_monuments_to_db,
     verify_database_counts,
 )
 
@@ -71,38 +73,46 @@ def run_check_connection() -> bool:
         return False
 
 
-def run_create_tables() -> bool:
+def run_create_tables(engine: Optional[Engine] = None) -> bool:
     """Creates database schema tables."""
     print("\n[Step: Schema Creation] Initializing database tables...")
     try:
-        create_all_tables()
-        print("SUCCESS: Tables 'tourism_statewise_annual' and 'weather_daily_forecast' ready.")
+        create_all_tables(engine=engine)
+        print("SUCCESS: Tables 'tourism_statewise_annual', 'weather_daily_forecast', and 'asi_monument_visitors' ready.")
         return True
     except Exception as e:
         logger.error(f"Failed to create database tables: {e}")
         return False
 
 
-def run_load_data(tourism_path: Optional[str] = None, weather_path: Optional[str] = None) -> bool:
+def run_load_data(
+    tourism_path: Optional[str] = None,
+    weather_path: Optional[str] = None,
+    monument_path: Optional[str] = None,
+    engine: Optional[Engine] = None,
+) -> bool:
     """Loads curated Parquet datasets into database."""
     print("\n[Step: Data Ingestion] Loading curated datasets with idempotent upsert...")
     try:
-        t_count = load_curated_tourism_to_db(parquet_path=tourism_path)
+        t_count = load_curated_tourism_to_db(parquet_path=tourism_path, engine=engine)
         print(f"SUCCESS: Ingested {t_count} records into 'tourism_statewise_annual'.")
 
-        w_count = load_curated_weather_to_db(parquet_path=weather_path)
+        w_count = load_curated_weather_to_db(parquet_path=weather_path, engine=engine)
         print(f"SUCCESS: Ingested {w_count} records into 'weather_daily_forecast'.")
+
+        m_count = load_curated_monuments_to_db(parquet_path=monument_path, engine=engine)
+        print(f"SUCCESS: Ingested {m_count} records into 'asi_monument_visitors'.")
         return True
     except Exception as e:
         logger.error(f"Failed during data loading: {e}")
         return False
 
 
-def run_verify() -> bool:
+def run_verify(engine: Optional[Engine] = None) -> bool:
     """Queries and displays verification metrics from the database."""
     print("\n[Step: Verification] Querying database record counts and integrity...")
     try:
-        metrics = verify_database_counts()
+        metrics = verify_database_counts(engine=engine)
         print("\n--- DATABASE VERIFICATION SUMMARY ---")
         print(f"Tourism Total Records      : {metrics['tourism_total_count']} (Expected: 370)")
         print(f"  - State/UT Records       : {metrics['tourism_state_count']} (Expected: 360)")
@@ -115,6 +125,12 @@ def run_verify() -> bool:
         print(f"  - Destinations           : {', '.join(metrics['weather_destinations'])}")
         print(f"  - Distinct Forecast Dates: {metrics['weather_distinct_dates']} (Expected: 7)")
         print(f"  - All Marked as Forecast : {metrics['weather_all_forecast']}")
+        print(f"Monument Total Records     : {metrics.get('monument_total_count', 0)} (Expected: 290)")
+        print(f"  - Distinct Monuments     : {metrics.get('monument_distinct_count', 0)} (Expected: 145)")
+        print(f"  - Distinct ASI Circles   : {metrics.get('monument_distinct_circles', 0)} (Expected: 33)")
+        print(f"  - Distinct States/Regions: {metrics.get('monument_distinct_states', 0)}")
+        print(f"  - Financial Years        : {metrics.get('monument_financial_years', [])}")
+        print(f"  - Total Footfall Tracked : {metrics.get('monument_total_footfall', 0):,}")
         print("--------------------------------------\n")
         return True
     except Exception as e:
@@ -131,31 +147,42 @@ def main():
     parser.add_argument("--load-data", action="store_true", help="Load curated datasets with upsert")
     parser.add_argument("--verify", action="store_true", help="Verify database counts and constraints")
     parser.add_argument("--all", action="store_true", help="Run full pipeline: check, create, load, verify")
+    parser.add_argument("--sqlite", action="store_true", help="Target local SQLite store at data/travelwise.db")
     parser.add_argument("--tourism-path", type=str, default=None, help="Custom path to tourism Parquet")
     parser.add_argument("--weather-path", type=str, default=None, help="Custom path to weather Parquet")
+    parser.add_argument("--monument-path", type=str, default=None, help="Custom path to monument Parquet")
 
     args = parser.parse_args()
+
+    # Determine target engine
+    target_engine = None
+    if args.sqlite:
+        from pathlib import Path
+        from sqlalchemy import create_engine
+        sqlite_file = Path(__file__).resolve().parent.parent.parent / "data" / "travelwise.db"
+        target_engine = create_engine(f"sqlite:///{sqlite_file.as_posix()}", echo=False)
+        print(f"Using local SQLite engine: {target_engine.url}")
 
     # Default to --all if no action specified
     if not any([args.check_connection, args.create_tables, args.load_data, args.verify, args.all]):
         args.all = True
 
-    if args.check_connection or args.all:
+    if (args.check_connection or args.all) and not args.sqlite:
         if not run_check_connection():
             if args.all:
                 print("Aborting database initialization because PostgreSQL connection could not be established.")
                 sys.exit(1)
 
     if args.create_tables or args.all:
-        if not run_create_tables():
+        if not run_create_tables(engine=target_engine):
             sys.exit(1)
 
     if args.load_data or args.all:
-        if not run_load_data(args.tourism_path, args.weather_path):
+        if not run_load_data(args.tourism_path, args.weather_path, args.monument_path, engine=target_engine):
             sys.exit(1)
 
     if args.verify or args.all:
-        if not run_verify():
+        if not run_verify(engine=target_engine):
             sys.exit(1)
 
     print("\nTravelWise Database operations completed successfully.")

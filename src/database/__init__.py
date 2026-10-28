@@ -9,6 +9,7 @@ from src.database.models import (
     Base,
     TourismStatewiseAnnual,
     WeatherDailyForecast,
+    ASIMonumentVisitor,
 )
 from src.database.connection import (
     get_engine,
@@ -21,6 +22,7 @@ from src.database.loader import (
     drop_all_tables,
     load_curated_tourism_to_db,
     load_curated_weather_to_db,
+    load_curated_monuments_to_db,
     verify_database_counts,
 )
 
@@ -30,6 +32,7 @@ __all__ = [
     "Base",
     "TourismStatewiseAnnual",
     "WeatherDailyForecast",
+    "ASIMonumentVisitor",
     "get_engine",
     "get_session_factory",
     "get_db_session",
@@ -38,5 +41,6 @@ __all__ = [
     "drop_all_tables",
     "load_curated_tourism_to_db",
     "load_curated_weather_to_db",
+    "load_curated_monuments_to_db",
     "verify_database_counts",
 ]
